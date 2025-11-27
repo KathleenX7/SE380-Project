@@ -18,11 +18,11 @@ finished = False
 last_lookahead = 2
 
 # Velocity PID
-Kp_a, Ki_a, Kd_a = 2.0, 0.1, 0.01
+Kp_a, Ki_a, Kd_a = 0.75, 0.1, 0.01
 max_integral_v = 3.0
 
 # Steering PID
-Kp_delta, Ki_delta, Kd_delta = 2.0, 0.05, 0.5
+Kp_delta, Ki_delta, Kd_delta = 2.0, 0.05, 0.75
 max_integral_delta = 2.0
 
 def lower_controller(state, desired, parameters):
@@ -105,7 +105,7 @@ def controller(state: ArrayLike, parameters: ArrayLike, racetrack: RaceTrack) ->
     curv_norm = np.clip(effective_curv / 0.02, 0, 3)
     
     # Calculate lookahead
-    lookahead = int(2.0 + 7 * np.exp(-4 * curv_norm))
+    lookahead = int(3 + 6 * np.exp(-4 * curv_norm))
     if last_lookahead < lookahead:
         lookahead = max(int(np.ceil(last_lookahead + (lookahead - last_lookahead) / 4.0)),
                         last_lookahead + 1)
@@ -113,14 +113,6 @@ def controller(state: ArrayLike, parameters: ArrayLike, racetrack: RaceTrack) ->
     # Calculate sharp turn
     severity = min(1.0, effective_curv / 0.02)
     sharp_turn = 0.75 + 3.5 * (severity ** 10)
-
-    if min_dist > 2.0 and curvature < 0.001:
-        lookahead += min(4, int(4 * curvature / 0.001))
-        sharp_turn = max(1.0, sharp_turn * (1.0 + 2 * (1.0 - 5 * severity)))
-    elif min_dist > 5.0:
-        sharp_turn = min(2, sharp_turn)
-    elif curvature < 0.001:
-        sharp_turn = 0.5
 
     if effective_curv > 0.1:
         lookahead = 1
@@ -137,7 +129,7 @@ def controller(state: ArrayLike, parameters: ArrayLike, racetrack: RaceTrack) ->
 
     # Calculate velocity
     base_speed = parameters[5]
-    v_r = base_speed / (1.0 + sharp_turn + 38 * np.sqrt(effective_curv))
+    v_r = base_speed / (1.0 + sharp_turn + 30 * np.sqrt(effective_curv))
 
     if is_on_straight and min_dist < 2.5:
         v_r = min(v_r * 1.15, base_speed)
@@ -145,21 +137,23 @@ def controller(state: ArrayLike, parameters: ArrayLike, racetrack: RaceTrack) ->
         v_r *= 0.92
 
     v_r = np.clip(v_r, parameters[2], parameters[5])
-
+    
     # Calculate delta
     phi_r = np.arctan2(ty - sy, tx - sx)
     e_phi = np.arctan2(np.sin(phi_r - heading), np.cos(phi_r - heading))
 
-    steer_gain = 1.8
+    steer_gain = 2.9
     wheelbase = parameters[0]
     raw_delta_r = steer_gain * (wheelbase / max(v_r, 1.0)) * e_phi
 
-    alpha = 0.55 + 0.40 * (1 - severity)
+    alpha = 0.5 + 0.40 * (1 - severity)
     delta_r = alpha * raw_delta_r + (1 - alpha) * prev_delta_r
     prev_delta_r = delta_r
 
     delta_r = np.clip(delta_r, parameters[1], parameters[4])
     max_idx = max(idx, max_idx)
     last_lookahead = lookahead
-
+    
     return np.array([delta_r, v_r])
+
+#
