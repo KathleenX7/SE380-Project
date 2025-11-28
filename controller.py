@@ -143,6 +143,8 @@ def controller(state: ArrayLike, parameters: ArrayLike, racetrack: RaceTrack) ->
     e_phi = np.arctan2(np.sin(phi_r - heading), np.cos(phi_r - heading))
 
     steer_gain = 2.9
+    if min_dist > 6:
+        steer_gain = 1.0
     wheelbase = parameters[0]
     raw_delta_r = steer_gain * (wheelbase / max(v_r, 1.0)) * e_phi
 
